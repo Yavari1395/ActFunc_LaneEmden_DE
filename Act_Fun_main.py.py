@@ -13,56 +13,25 @@ import torch.optim as optim
 import time
 
 
-class CustomActivation2(nn.Module):
-    def __init__(self):
-        super(CustomActivation2, self).__init__()
-
-    def forward(self, x):
-        Sigm = (1 / (1 + torch.exp(-x)))
-        SigmW = Sigm * (1 + x * (1 - Sigm))
-        return SigmW
-custom_actv2 = CustomActivation2()
-
-# Define the new neural network with the custom activation function
-class FCNNWithCustomActivation(nn.Module):
-    def __init__(self, n_input_units, n_output_units, hidden_units, actv):
-        super(FCNNWithCustomActivation, self).__init__()
-        self.n_input_units = n_input_units
-        self.n_output_units = n_output_units
-        self.hidden_units = hidden_units
-        self.actv = actv  # Use the custom activation function
-        # Define the layers
-        self.layers = nn.ModuleList()
-        previous_units = self.n_input_units
-        for units in self.hidden_units:
-            self.layers.append(nn.Linear(previous_units, units))
-            self.layers.append(self.actv)
-            previous_units = units
-        self.layers.append(nn.Linear(previous_units, self.n_output_units))
-    def forward(self, x):
-        for layer in self.layers:
-            x = layer(x)
-        return x
-
 columns = ['DE_name', 'ActFunc_name', 'AvgNormInf', 'AvgNorm1','Avgloss','Elps_time']
 FinalDF = pd.DataFrame(columns=columns)
 
 Dtest = 10000;
 ts = np.linspace(0, 1, Dtest)
 
-# Define Differential Equations
+# Define Equations
 
-#DE42
+#Equation with alpha=1
 DE42 = lambda u, t:  diff(u, t, order=2) + (1 / t) * diff(u, t, order=1)+torch.exp(u)
 Init_Val42 = IVP(t_0=0.0, u_0=0.0, u_0_prime=0.0)
 Ana42 = (-1/4)*(ts**2)+(1/64)*(ts**4)-(1/768)*(ts**6)+(1/8192)*(ts**8)
 
-#DE43
+#Equation with alpha=2
 DE43 = lambda u, t:  diff(u, t, order=2) + (2 / t) * diff(u, t, order=1)+torch.exp(u)
 Init_Val43 = IVP(t_0=0.0, u_0=0.0, u_0_prime=0.0)
 Ana43 = (-1/6)*(ts**2)+(1/120)*(ts**4)-(1/1890)*(ts**6)+(61/1632960)*(ts**8)-(629/224532000)*(ts**10)
 
-#DE44
+#Equation with alpha=3
 DE44 = lambda u, t:  diff(u, t, order=2) + (3 / t) * diff(u, t, order=1)+torch.exp(u)
 Init_Val44 = IVP(t_0=0.0, u_0=0.0, u_0_prime=0.0)
 Ana44 = (-1/8)*(ts**2)+(1/192)*(ts**4)-(5/18432)*(ts**6)+(23/1474560)*(ts**8)
@@ -75,19 +44,16 @@ InitValsDic = { 'DE42': Init_Val42, 'DE43': Init_Val43, 'DE44': Init_Val44 }
 
 AnaSolDic = {'DE42': Ana42, 'DE43': Ana43, 'DE44': Ana44}
 
-activeFunctionsDic = {'GELU': nn.GELU, "Tanh": nn.Tanh, "ReLU":nn.ReLU, "Sigmoid": nn.Sigmoid, "SiLU": nn.SiLU,
-                      "PReLU": nn.PReLU,"CELU": nn.CELU, "ELU": nn.ELU,"LogSigmoid": nn.LogSigmoid,"Tanhshrink": nn.Tanhshrink,
-                       "SELU": nn.SELU, "MyActFunc2":custom_actv2}
+activeFunctionsDic = {'GELU': nn.GELU, "ReLU":nn.ReLU, "SiLU": nn.SiLU,
+                      "PReLU": nn.PReLU,"CELU": nn.CELU, "ELU": nn.ELU,"Tanhshrink": nn.Tanhshrink,
+                       "SELU": nn.SELU}
 
 for deIndex, defun in DEsDic.items():
     u_ana = AnaSolDic[deIndex]
     for actind, actfun in activeFunctionsDic.items():
         newrow = []
-        if actind[0:9] == 'MyActFunc':
-            net = FCNNWithCustomActivation(n_input_units=1, n_output_units=1, hidden_units=[32, 32, 32], actv=actfun)
-
-        else:
-            net = FCNN(n_input_units=1, n_output_units=1, hidden_units=[32, 32, 32], actv=actfun)
+        
+        net = FCNN(n_input_units=1, n_output_units=1, hidden_units=[32, 32, 32], actv=actfun)
 
         optimizer = optim.Adam(net.parameters())
         try:
